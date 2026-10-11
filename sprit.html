@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<title>SpritBuk – Tankstellen finden</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1220;--panel:#131e30;--panel2:#1b2940;--text:#eef4ff;--muted:#a9b8ce;--accent:#5ee0b5;--line:#2b3b54;--danger:#ffb4ab}*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#101a2c,#080e18);color:var(--text);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{max-width:760px;margin:auto;padding:22px 16px 44px}.hero{padding:8px 2px 18px}h1{font-size:clamp(28px,7vw,40px);margin:0 0 5px;letter-spacing:-.04em}.sub{color:var(--muted);margin:0}.panel{background:rgba(19,30,48,.96);border:1px solid var(--line);border-radius:18px;padding:17px;margin:12px 0;box-shadow:0 12px 35px #0002}h2{font-size:18px;margin:0 0 14px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{display:flex;flex-direction:column;gap:6px;min-width:0}label{font-size:13px;color:var(--muted)}input,select,button{font:inherit;border-radius:11px;min-height:46px;width:100%}input,select{color:var(--text);background:#0b1423;border:1px solid #354862;padding:10px 12px}input::placeholder{color:#71839d}button{border:0;padding:12px 16px;font-weight:750;cursor:pointer}.primary{background:var(--accent);color:#06241b;margin-top:14px}.secondary{background:#26364d;color:var(--text);border:1px solid #3a4d68}.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.note{font-size:13px;color:var(--muted);margin:10px 0 0}.status{white-space:pre-wrap;border-radius:12px;padding:12px 13px;background:#0b1423;border:1px solid var(--line);color:var(--muted);margin-top:12px;min-height:46px}.status.error{color:var(--danger);border-color:#76433f}.status.good{color:var(--accent)}.result{border:1px solid var(--line);background:#0c1626;border-radius:13px;padding:13px;margin-top:10px}.result strong{display:block;font-size:16px}.price{font-size:24px;font-weight:800;color:var(--accent);margin:5px 0}.small{font-size:13px;color:var(--muted)}.pill{display:inline-block;border:1px solid #3b526d;border-radius:99px;padding:3px 9px;font-size:12px;color:var(--muted);margin-bottom:8px}.hidden{display:none}.footer{font-size:12px;color:#8496af;padding:8px 3px}.spinner{display:inline-block;width:14px;height:14px;border:2px solid #52647a;border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px;margin-right:7px}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:480px){.grid{grid-template-columns:1fr 1fr}.panel{padding:14px}.actions{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+<header class="hero"><div class="pill">BETA · weltweite Tankstellensuche</div><h1>⛽ SpritBuk</h1><p class="sub">Tankstellen finden, Preise vergleichen und Umwege einschätzen.</p></header>
+<section class="panel">
+<h2>1. Suche einstellen</h2>
+<div class="field"><label for="place">Ort oder Adresse</label><input id="place" autocomplete="street-address" placeholder="z. B. Frechen oder aktuelle Adresse" value=""></div>
+<div class="actions"><button class="secondary" id="gpsBtn" type="button">◎ Aktuellen Standort per GPS</button><button class="secondary" id="clearGpsBtn" type="button">Standort zurücksetzen</button></div>
+<p class="note">GPS funktioniert nur, wenn du die Standortfreigabe erlaubst und die App über HTTPS oder localhost geöffnet ist.</p>
+<div class="grid" style="margin-top:12px">
+<div class="field"><label for="fuel">Kraftstoff</label><select id="fuel"><option value="diesel">Diesel</option><option value="e5">Super E5</option><option value="e10">Super E10</option><option value="lpg">Autogas (LPG)</option></select></div>
+<div class="field"><label for="radius">Suchradius</label><select id="radius"><option value="5">5 km</option><option value="10" selected>10 km</option><option value="20">20 km</option><option value="40">40 km</option></select></div>
+</div>
+<div class="grid" style="margin-top:12px">
+<div class="field"><label for="vehicle">Fahrzeug (optional)</label><input id="vehicle" type="text" maxlength="60" placeholder="z. B. VW Golf"></div>
+<div class="field"><label for="consumption">Verbrauch (l/100 km)</label><input id="consumption" type="number" min="1" max="40" step="0.1" value="7.0"></div>
+</div>
+<div class="grid" style="margin-top:12px">
+<div class="field"><label for="tankCapacity">Tankvolumen (Liter)</label><input id="tankCapacity" type="number" min="1" max="200" step="1" value="50"></div>
+<div class="field"><label for="tank">Geplante Tankmenge (Liter)</label><input id="tank" type="number" min="1" max="200" step="1" value="40"></div>
+</div>
+<p class="note" id="saveNote">Fahrzeugdaten werden auf diesem Gerät gespeichert.</p>
+<button class="primary" id="searchBtn" type="button">Tankstellen finden</button>
+<div id="status" class="status" role="status" aria-live="polite">Gib einen Ort ein und starte die Suche. Die Oberfläche funktioniert auch ohne Kartenverbindung.</div>
+</section>
+<section class="panel">
+<h2>2. Fahrt / Zwischenstopp (optional)</h2>
+<div class="field"><label for="destination">Zielort für eine Fahrt</label><input id="destination" placeholder="z. B. München" autocomplete="off"></div>
+<div class="note">Die Suche nach Tankstellen funktioniert unabhängig vom Zielort. Eine passende Tankstelle entlang der Route kann nur angezeigt werden, wenn Routingdaten erreichbar sind.</div>
+<div id="routeInfo" class="status">Noch keine Route berechnet.</div>
+</section>
+<section class="panel">
+<h2>3. Ergebnisse</h2>
+<div id="results"><p class="note">Hier erscheinen gefundene Tankstellen. Weltweit sind Tankstellenstandorte nicht überall vollständig erfasst und Live-Preise sind je nach Land unterschiedlich verfügbar.</p></div>
+</section>
+<p class="footer">Datenquellen können zeitweise nicht erreichbar sein. Ein gefundener Standort bedeutet nicht automatisch, dass ein aktueller Kraftstoffpreis verfügbar ist. Diese Version zeigt fehlende Daten ausdrücklich an, statt Preise zu erfinden.</p>
+</main>
+<script>
+(function(){
+'use strict';
+const $ = id => document.getElementById(id);
+const statusEl = $('status'), resultsEl = $('results'), routeInfo = $('routeInfo'), button = $('searchBtn'), gpsBtn = $('gpsBtn');
+const STORAGE_KEY='spritbuk.settings.v1';
+let gpsPoint=null;
+const savedFields=['vehicle','consumption','tankCapacity','tank','fuel','radius','destination'];
+function loadSettings(){try{const data=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');savedFields.forEach(id=>{if(data[id]!==undefined && $(id))$(id).value=String(data[id]);});}catch(e){$('saveNote').textContent='Speicherung ist in dieser Vorschau nicht verfügbar; Eingaben bleiben möglicherweise nicht erhalten.';}}
+function saveSettings(){try{const data={};savedFields.forEach(id=>data[id]=$(id).value);localStorage.setItem(STORAGE_KEY,JSON.stringify(data));$('saveNote').textContent='Fahrzeugdaten und Einstellungen sind auf diesem Gerät gespeichert.';}catch(e){$('saveNote').textContent='Speichern nicht möglich (z. B. wegen Browser-/Vorschau-Einschränkungen).';}}
+function status(message, type){ statusEl.className = 'status' + (type ? ' '+type : ''); statusEl.textContent = message; }
+function esc(value){return String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function money(value){return Number.isFinite(value) ? value.toLocaleString('de-DE',{style:'currency',currency:'EUR'}) : 'Preis nicht verfügbar';}
+async function geocode(place){
+ const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=1&q='+encodeURIComponent(place);
+ const response=await fetch(url,{headers:{'Accept':'application/json'}});
+ if(!response.ok) throw new Error('Der Ortsdienst antwortet mit HTTP '+response.status+'.');
+ const data=await response.json();
+ if(!Array.isArray(data)||!data.length) throw new Error('Der Ort wurde nicht gefunden. Bitte Schreibweise oder eine nahegelegene größere Stadt versuchen.');
+ return {lat:Number(data[0].lat),lon:Number(data[0].lon),display:data[0].display_name||place,country:(data[0].address||{}).country_code||''};
+}
+async function stationsNear(point, radiusKm, fuel){
+ const meters=Math.round(radiusKm*1000);
+ const query='[out:json][timeout:20];(node["amenity"="fuel"](around:'+meters+','+point.lat+','+point.lon+');way["amenity"="fuel"](around:'+meters+','+point.lat+','+point.lon+');relation["amenity"="fuel"](around:'+meters+','+point.lat+','+point.lon+'););out center tags;';
+ const url='https://overpass-api.de/api/interpreter?data='+encodeURIComponent(query);
+ const response=await fetch(url,{method:'GET',headers:{'Accept':'application/json'}});
+ if(!response.ok) throw new Error('Der Tankstellen-Kartendienst ist momentan nicht erreichbar (HTTP '+response.status+').');
+ const data=await response.json();
+ const list=(data.elements||[]).map(el=>{
+  const tags=el.tags||{}, lat=Number(el.lat??(el.center||{}).lat), lon=Number(el.lon??(el.center||{}).lon);
+  const name=tags.name||tags.brand||tags.operator||'Tankstelle ohne Namen';
+  const distance=distanceKm(point.lat,point.lon,lat,lon);
+  const priceTag={diesel:['fuel:diesel'],e5:['fuel:octane_95'],e10:['fuel:octane_95'],lpg:['fuel:lpg']}[fuel]||[];
+  let price=null; for(const key of priceTag){if(tags[key] && Number.isFinite(Number(String(tags[key]).replace(',','.')))){price=Number(String(tags[key]).replace(',','.'));break;}}
+  return {name,address:[tags['addr:street'],tags['addr:housenumber'],tags['addr:city']||tags['addr:town']].filter(Boolean).join(' ')||'Adresse nicht hinterlegt',lat,lon,distance,price,brand:tags.brand||'',website:tags.website||''};
+ }).filter(s=>Number.isFinite(s.lat)&&Number.isFinite(s.lon)&&s.distance<=radiusKm).sort((a,b)=>a.distance-b.distance);
+ return list;
+}
+function distanceKm(lat1,lon1,lat2,lon2){const r=6371,rad=x=>x*Math.PI/180,dLat=rad(lat2-lat1),dLon=rad(lon2-lon1),a=Math.sin(dLat/2)**2+Math.cos(rad(lat1))*Math.cos(rad(lat2))*Math.sin(dLon/2)**2;return 2*r*Math.asin(Math.sqrt(a));}
+function renderStations(stations, point){
+ if(!stations.length){resultsEl.innerHTML='<p class="note">Im gewählten Radius wurden keine Tankstellen gefunden. Das kann auch an unvollständigen Kartendaten liegen.</p>';return;}
+ const fuelName=$('fuel').selectedOptions[0].textContent, liters=Math.max(0,Number($('tank').value)||0), consumption=Math.max(0,Number($('consumption').value)||0);
+ resultsEl.innerHTML='<p class="note">'+stations.length+' Tankstelle(n) · '+esc(fuelName)+' · nach Entfernung sortiert. Aktuelle Preise sind nicht für alle Länder und Stationen verfügbar.</p>'+stations.slice(0,40).map((s,i)=>{
+  const roundTripKm=s.distance*2, extraFuel=roundTripKm*consumption/100, price=s.price;
+  const savings=price==null?null:(liters*price - extraFuel*price);
+  return '<article class="result"><span class="pill">'+(i+1)+'. · '+s.distance.toLocaleString('de-DE',{maximumFractionDigits:1})+' km entfernt</span><strong>'+esc(s.name)+'</strong><div class="small">'+esc(s.address)+'</div><div class="price">'+(price==null?'Preis nicht verfügbar':money(price)+'/l')+'</div><div class="small">'+(price==null?'Für diese Station wurde kein verwertbarer Preis in den Kartendaten gefunden.':'Preis aus Kartendaten; Aktualität nicht garantiert.')+'</div><div class="small" style="margin-top:7px">Geschätzter Umweg für Hin- und Rückfahrt: '+roundTripKm.toLocaleString('de-DE',{maximumFractionDigits:1})+' km · zusätzlicher Kraftstoff ca. '+extraFuel.toLocaleString('de-DE',{maximumFractionDigits:2})+' l</div><div class="small">'+(price==null?'Vorteil nicht berechenbar.':'Nur rechnerisch, ohne Preisunterschied zu einer Alternative: '+money(savings)+'.')+'</div><div class="actions"><button class="secondary" type="button" data-map="'+s.lat+','+s.lon+'">In Karten öffnen</button>'+(s.website?'<button class="secondary" type="button" data-web="'+esc(s.website)+'">Website</button>':'<button class="secondary" type="button" data-copy="'+esc(s.name+' – '+s.address)+'">Details kopieren</button>')+'</div></article>';
+ }).join('');
+ resultsEl.querySelectorAll('[data-map]').forEach(b=>b.addEventListener('click',()=>window.open('https://www.openstreetmap.org/?mlat='+encodeURIComponent(b.dataset.map.split(',')[0])+'&mlon='+encodeURIComponent(b.dataset.map.split(',')[1])+'#map=17/'+b.dataset.map,'_blank','noopener')));
+ resultsEl.querySelectorAll('[data-web]').forEach(b=>b.addEventListener('click',()=>{let u=b.dataset.web;if(!/^https?:\/\//i.test(u))u='https://'+u;window.open(u,'_blank','noopener');}));
+ resultsEl.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(b.dataset.copy);b.textContent='Kopiert';}catch(e){b.textContent=b.dataset.copy;}}));
+}
+async function doSearch(){
+ const place=$('place').value.trim(); if(!gpsPoint && !place){status('Bitte GPS-Standort ermitteln oder einen Ort eingeben.','error');$('place').focus();return;}
+ button.disabled=true;button.innerHTML='<span class="spinner"></span>Suche läuft …';resultsEl.innerHTML='<p class="note">Suche läuft. Je nach Verbindung kann das einige Sekunden dauern.</p>';routeInfo.textContent='Noch keine Route berechnet.';
+ try{
+  status(gpsPoint?'GPS-Standort wird verwendet …':'Ort wird gesucht …'); const point=gpsPoint?gpsPoint:await geocode(place);
+  status('Ort gefunden: '+point.display+'\nTankstellen im Umkreis werden abgefragt …');
+  const stations=await stationsNear(point,Number($('radius').value),$('fuel').value);
+  renderStations(stations,point);
+  status('Suche abgeschlossen. '+stations.length+' Tankstelle(n) gefunden.','good');
+  const dest=$('destination').value.trim();
+  if(dest){routeInfo.textContent='Ziel eingetragen: '+dest+'. Eine Routen- und Zwischenstoppoptimierung ist in dieser Basisversion noch nicht zuverlässig verfügbar.';}
+  else routeInfo.textContent='Kein Zielort eingetragen. Die Ergebnisse beziehen sich auf den Suchort.';
+ }catch(err){
+  console.error(err);
+  status((err&&err.message?err.message:'Unbekannter Fehler')+'\n\nFalls du die App in einer eingebetteten Vorschau geöffnet hast, kann diese externe Kartenanfragen blockieren. Öffne die HTML-Datei in Safari über eine veröffentlichte HTTPS-Seite, um es erneut zu testen.','error');
+  resultsEl.innerHTML='<p class="note">Keine Ergebnisse abrufbar. Die App-Oberfläche ist weiterhin verfügbar; es wurden keine Preise oder Tankstellen erfunden.</p>';
+ }finally{button.disabled=false;button.textContent='Tankstellen finden';}
+}
+button.addEventListener('click',doSearch);
+$('place').addEventListener('input',()=>{if(gpsPoint){gpsPoint=null;status('Manuelle Ortsangabe ausgewählt.');}});
+gpsBtn.addEventListener('click',()=>{
+ if(!('geolocation' in navigator)){status('GPS/Standortbestimmung wird von diesem Browser nicht unterstützt.','error');return;}
+ gpsBtn.disabled=true;gpsBtn.textContent='Standort wird ermittelt …';
+ navigator.geolocation.getCurrentPosition(pos=>{
+  gpsPoint={lat:pos.coords.latitude,lon:pos.coords.longitude,display:'Aktueller GPS-Standort (Genauigkeit ca. '+Math.round(pos.coords.accuracy)+' m)',country:''};
+  $('place').value='Aktueller GPS-Standort';
+  status('GPS-Standort ermittelt. Tippe auf „Tankstellen finden“, um in der Nähe zu suchen.','good');
+  gpsBtn.disabled=false;gpsBtn.textContent='◎ Aktuellen Standort per GPS';
+ },err=>{
+  const msg=err.code===1?'Standortfreigabe verweigert. Bitte die Standortberechtigung für den Browser erlauben.':err.code===2?'Der Standort ist momentan nicht verfügbar.':'Zeitüberschreitung bei der Standortbestimmung. Bitte erneut versuchen.';
+  status(msg+' GPS benötigt in der Regel HTTPS und eine erteilte Berechtigung.','error');gpsBtn.disabled=false;gpsBtn.textContent='◎ Aktuellen Standort per GPS';
+ },{enableHighAccuracy:true,timeout:15000,maximumAge:60000});
+});
+$('clearGpsBtn').addEventListener('click',()=>{gpsPoint=null;$('place').value='';status('GPS-Standort zurückgesetzt. Du kannst einen Ort eingeben.');});
+savedFields.forEach(id=>$(id).addEventListener('change',saveSettings));
+loadSettings();
+// Initialisierung absichtlich ohne Netzwerkzugriff, damit die Oberfläche immer angezeigt wird.
+status('Ermittle den Standort per GPS oder gib einen Ort ein. Fahrzeugdaten werden lokal gespeichert, sofern der Browser dies zulässt.');
+})();
+</script>
+</body>
+</html>
