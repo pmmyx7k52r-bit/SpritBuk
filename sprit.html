@@ -22,6 +22,7 @@
 <div class="field"><label for="radius">Suchradius</label><select id="radius"><option value="5">5 km</option><option value="10" selected>10 km</option><option value="20">20 km</option><option value="40">40 km</option></select></div>
 </div>
 <div class="grid" style="margin-top:12px">
+<div class="field"><label>Live-Preise Deutschland</label><input type="text" value="Tankerkönig ist integriert" disabled aria-label="Tankerkönig ist integriert"></div>
 <div class="field"><label for="vehicle">Fahrzeug (optional)</label><input id="vehicle" type="text" maxlength="60" placeholder="z. B. VW Golf"></div>
 <div class="field"><label for="consumption">Verbrauch (l/100 km)</label><input id="consumption" type="number" min="1" max="40" step="0.1" value="7.0"></div>
 </div>
@@ -29,7 +30,7 @@
 <div class="field"><label for="tankCapacity">Tankvolumen (Liter)</label><input id="tankCapacity" type="number" min="1" max="200" step="1" value="50"></div>
 <div class="field"><label for="tank">Geplante Tankmenge (Liter)</label><input id="tank" type="number" min="1" max="200" step="1" value="40"></div>
 </div>
-<p class="note" id="saveNote">Fahrzeugdaten werden auf diesem Gerät gespeichert.</p>
+<p class="note" id="saveNote">Fahrzeugdaten werden auf diesem Gerät gespeichert. Tankerkönig ist für Deutschland integriert. Außerhalb Deutschlands werden Live-Preise nur angezeigt, wenn eine geeignete Quelle verfügbar ist.</p>
 <button class="primary" id="searchBtn" type="button">Tankstellen finden</button>
 <div id="status" class="status" role="status" aria-live="polite">Gib einen Ort ein und starte die Suche. Die Oberfläche funktioniert auch ohne Kartenverbindung.</div>
 </section>
@@ -51,6 +52,8 @@
 const $ = id => document.getElementById(id);
 const statusEl = $('status'), resultsEl = $('results'), routeInfo = $('routeInfo'), button = $('searchBtn'), gpsBtn = $('gpsBtn');
 const STORAGE_KEY='spritbuk.settings.v1';
+// Eingebauter Tankerkönig-Schlüssel für die Deutschland-Suche. Achtung: In einer öffentlichen HTML-Datei ist er im Quelltext sichtbar.
+const TANKERKOENIG_API_KEY='e50d05bf-788e-4ad3-98e1-afc9191bac64';
 let gpsPoint=null;
 const savedFields=['vehicle','consumption','tankCapacity','tank','fuel','radius','destination'];
 function loadSettings(){try{const data=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');savedFields.forEach(id=>{if(data[id]!==undefined && $(id))$(id).value=String(data[id]);});}catch(e){$('saveNote').textContent='Speicherung ist in dieser Vorschau nicht verfügbar; Eingaben bleiben möglicherweise nicht erhalten.';}}
@@ -67,6 +70,22 @@ async function geocode(place){
  return {lat:Number(data[0].lat),lon:Number(data[0].lon),display:data[0].display_name||place,country:(data[0].address||{}).country_code||''};
 }
 async function stationsNear(point, radiusKm, fuel){
+ const apiKey=TANKERKOENIG_API_KEY;
+ // Tankerkönig liefert aktuelle MTS-K-Preise nur für Deutschland und nur mit persönlichem Schlüssel.
+ if(apiKey && ['diesel','e5','e10'].includes(fuel)){
+  if(radiusKm>25) throw new Error('Tankerkönig erlaubt maximal 25 km Suchradius. Bitte einen kleineren Radius wählen.');
+  const params=new URLSearchParams({lat:String(point.lat),lng:String(point.lon),rad:String(radiusKm),sort:'price',type:fuel,apikey:apiKey});
+  const response=await fetch('https://creativecommons.tankerkoenig.de/json/list.php?'+params.toString(),{headers:{'Accept':'application/json'}});
+  if(!response.ok) throw new Error('Tankerkönig-Preisdienst antwortet mit HTTP '+response.status+'.');
+  const data=await response.json();
+  if(!data.ok) throw new Error('Tankerkönig: '+(data.message||'Abfrage fehlgeschlagen. API-Schlüssel prüfen.'));
+  const list=(data.stations||[]).map(st=>{
+   const lat=Number(st.lat),lon=Number(st.lng??st.lon),price=Number(st.price??st[fuel]);
+   return {name:st.name||st.brand||'Tankstelle ohne Namen',address:[st.street,st.houseNumber,st.postCode,st.place].filter(Boolean).join(' ')||'Adresse nicht hinterlegt',lat,lon,distance:distanceKm(point.lat,point.lon,lat,lon),price:Number.isFinite(price)&&price>0?price:null,brand:st.brand||'',website:'',isOpen:st.isOpen,priceSource:'Tankerkönig / MTS-K',stationId:st.id};
+  }).filter(st=>Number.isFinite(st.lat)&&Number.isFinite(st.lon)&&st.distance<=radiusKm).sort((a,b)=>(a.price??Infinity)-(b.price??Infinity));
+  list.priceSource='Tankerkönig';
+  return list;
+ }
  const meters=Math.round(radiusKm*1000);
  const query='[out:json][timeout:20];(node["amenity"="fuel"](around:'+meters+','+point.lat+','+point.lon+');way["amenity"="fuel"](around:'+meters+','+point.lat+','+point.lon+');relation["amenity"="fuel"](around:'+meters+','+point.lat+','+point.lon+'););out center tags;';
  const url='https://overpass-api.de/api/interpreter?data='+encodeURIComponent(query);
@@ -77,20 +96,21 @@ async function stationsNear(point, radiusKm, fuel){
   const tags=el.tags||{}, lat=Number(el.lat??(el.center||{}).lat), lon=Number(el.lon??(el.center||{}).lon);
   const name=tags.name||tags.brand||tags.operator||'Tankstelle ohne Namen';
   const distance=distanceKm(point.lat,point.lon,lat,lon);
-  const priceTag={diesel:['fuel:diesel'],e5:['fuel:octane_95'],e10:['fuel:octane_95'],lpg:['fuel:lpg']}[fuel]||[];
-  let price=null; for(const key of priceTag){if(tags[key] && Number.isFinite(Number(String(tags[key]).replace(',','.')))){price=Number(String(tags[key]).replace(',','.'));break;}}
-  return {name,address:[tags['addr:street'],tags['addr:housenumber'],tags['addr:city']||tags['addr:town']].filter(Boolean).join(' ')||'Adresse nicht hinterlegt',lat,lon,distance,price,brand:tags.brand||'',website:tags.website||''};
- }).filter(s=>Number.isFinite(s.lat)&&Number.isFinite(s.lon)&&s.distance<=radiusKm).sort((a,b)=>a.distance-b.distance);
+  let price=null;
+  return {name,address:[tags['addr:street'],tags['addr:housenumber'],tags['addr:postcode'],tags['addr:city']||tags['addr:town']].filter(Boolean).join(' ')||'Adresse nicht hinterlegt',lat,lon,distance,price,brand:tags.brand||'',website:tags.website||'',priceSource:'keine aktuelle Preisquelle'};
+ }).filter(st=>Number.isFinite(st.lat)&&Number.isFinite(st.lon)&&st.distance<=radiusKm).sort((a,b)=>a.distance-b.distance);
  return list;
 }
 function distanceKm(lat1,lon1,lat2,lon2){const r=6371,rad=x=>x*Math.PI/180,dLat=rad(lat2-lat1),dLon=rad(lon2-lon1),a=Math.sin(dLat/2)**2+Math.cos(rad(lat1))*Math.cos(rad(lat2))*Math.sin(dLon/2)**2;return 2*r*Math.asin(Math.sqrt(a));}
 function renderStations(stations, point){
  if(!stations.length){resultsEl.innerHTML='<p class="note">Im gewählten Radius wurden keine Tankstellen gefunden. Das kann auch an unvollständigen Kartendaten liegen.</p>';return;}
  const fuelName=$('fuel').selectedOptions[0].textContent, liters=Math.max(0,Number($('tank').value)||0), consumption=Math.max(0,Number($('consumption').value)||0);
- resultsEl.innerHTML='<p class="note">'+stations.length+' Tankstelle(n) · '+esc(fuelName)+' · nach Entfernung sortiert. Aktuelle Preise sind nicht für alle Länder und Stationen verfügbar.</p>'+stations.slice(0,40).map((s,i)=>{
+ const hasPrices=stations.some(s=>s.price!=null);
+ const sourceNote=['diesel','e5','e10'].includes($('fuel').value) ? 'Tankerkönig (Deutschland; integrierter API-Key)' : 'OpenStreetMap (Tankstellenstandorte, in der Regel ohne Live-Preise)';
+ resultsEl.innerHTML='<p class="note">'+stations.length+' Tankstelle(n) · '+esc(fuelName)+' · '+esc(sourceNote)+'. '+(hasPrices?'Preise verfügbar; nach Preis sortiert, soweit vorhanden.':'Keine Live-Preise in den abgerufenen Daten. Ohne Tankerkönig-Schlüssel zeigt die App nur Standorte.')+'</p>'+stations.slice(0,40).map((s,i)=>{
   const roundTripKm=s.distance*2, extraFuel=roundTripKm*consumption/100, price=s.price;
   const savings=price==null?null:(liters*price - extraFuel*price);
-  return '<article class="result"><span class="pill">'+(i+1)+'. · '+s.distance.toLocaleString('de-DE',{maximumFractionDigits:1})+' km entfernt</span><strong>'+esc(s.name)+'</strong><div class="small">'+esc(s.address)+'</div><div class="price">'+(price==null?'Preis nicht verfügbar':money(price)+'/l')+'</div><div class="small">'+(price==null?'Für diese Station wurde kein verwertbarer Preis in den Kartendaten gefunden.':'Preis aus Kartendaten; Aktualität nicht garantiert.')+'</div><div class="small" style="margin-top:7px">Geschätzter Umweg für Hin- und Rückfahrt: '+roundTripKm.toLocaleString('de-DE',{maximumFractionDigits:1})+' km · zusätzlicher Kraftstoff ca. '+extraFuel.toLocaleString('de-DE',{maximumFractionDigits:2})+' l</div><div class="small">'+(price==null?'Vorteil nicht berechenbar.':'Nur rechnerisch, ohne Preisunterschied zu einer Alternative: '+money(savings)+'.')+'</div><div class="actions"><button class="secondary" type="button" data-map="'+s.lat+','+s.lon+'">In Karten öffnen</button>'+(s.website?'<button class="secondary" type="button" data-web="'+esc(s.website)+'">Website</button>':'<button class="secondary" type="button" data-copy="'+esc(s.name+' – '+s.address)+'">Details kopieren</button>')+'</div></article>';
+  return '<article class="result"><span class="pill">'+(i+1)+'. · '+s.distance.toLocaleString('de-DE',{maximumFractionDigits:1})+' km entfernt</span><strong>'+esc(s.name)+'</strong><div class="small">'+esc(s.address)+'</div><div class="price">'+(price==null?'Preis nicht verfügbar':money(price)+'/l')+'</div><div class="small">'+(price==null?'Für diese Station liegt aus der verwendeten Quelle kein Preis vor.':'Preisquelle: '+esc(s.priceSource||'Tankerkönig / MTS-K')+'. Aktualität kann abweichen.')+'</div><div class="small" style="margin-top:7px">Geschätzter Umweg für Hin- und Rückfahrt: '+roundTripKm.toLocaleString('de-DE',{maximumFractionDigits:1})+' km · zusätzlicher Kraftstoff ca. '+extraFuel.toLocaleString('de-DE',{maximumFractionDigits:2})+' l</div><div class="small">'+(price==null?'Vorteil nicht berechenbar.':'Nur rechnerisch, ohne Preisunterschied zu einer Alternative: '+money(savings)+'.')+'</div><div class="actions"><button class="secondary" type="button" data-map="'+s.lat+','+s.lon+'">In Karten öffnen</button>'+(s.website?'<button class="secondary" type="button" data-web="'+esc(s.website)+'">Website</button>':'<button class="secondary" type="button" data-copy="'+esc(s.name+' – '+s.address)+'">Details kopieren</button>')+'</div></article>';
  }).join('');
  resultsEl.querySelectorAll('[data-map]').forEach(b=>b.addEventListener('click',()=>window.open('https://www.openstreetmap.org/?mlat='+encodeURIComponent(b.dataset.map.split(',')[0])+'&mlon='+encodeURIComponent(b.dataset.map.split(',')[1])+'#map=17/'+b.dataset.map,'_blank','noopener')));
  resultsEl.querySelectorAll('[data-web]').forEach(b=>b.addEventListener('click',()=>{let u=b.dataset.web;if(!/^https?:\/\//i.test(u))u='https://'+u;window.open(u,'_blank','noopener');}));
@@ -104,7 +124,7 @@ async function doSearch(){
   status('Ort gefunden: '+point.display+'\nTankstellen im Umkreis werden abgefragt …');
   const stations=await stationsNear(point,Number($('radius').value),$('fuel').value);
   renderStations(stations,point);
-  status('Suche abgeschlossen. '+stations.length+' Tankstelle(n) gefunden.','good');
+  status('Suche abgeschlossen. '+stations.length+' Tankstelle(n) gefunden. '+(stations.some(s=>s.price!=null)?'Preise wurden abgerufen.':'Es wurden keine aktuellen Preise geliefert. Prüfe bei Deutschland die API-Antwort; für andere Länder ist eine landesspezifische Preisquelle nötig.'),'good');
   const dest=$('destination').value.trim();
   if(dest){routeInfo.textContent='Ziel eingetragen: '+dest+'. Eine Routen- und Zwischenstoppoptimierung ist in dieser Basisversion noch nicht zuverlässig verfügbar.';}
   else routeInfo.textContent='Kein Zielort eingetragen. Die Ergebnisse beziehen sich auf den Suchort.';
