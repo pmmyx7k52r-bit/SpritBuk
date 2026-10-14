@@ -19,7 +19,7 @@
 <p class="note">GPS funktioniert nur, wenn du die Standortfreigabe erlaubst und die App über HTTPS oder localhost geöffnet ist.</p>
 <div class="grid" style="margin-top:12px">
 <div class="field"><label for="fuel">Kraftstoff</label><select id="fuel"><option value="diesel">Diesel</option><option value="e5">Super E5</option><option value="e10">Super E10</option><option value="lpg">Autogas (LPG)</option></select></div>
-<div class="field"><label for="radius">Suchradius</label><select id="radius"><option value="5">5 km</option><option value="10" selected>10 km</option><option value="20">20 km</option><option value="25">25 km</option></select></div>
+<div class="field"><label for="radius">Suchradius</label><select id="radius"><option value="5">5 km</option><option value="10" selected>10 km</option><option value="20">20 km</option><option value="40">40 km</option></select></div>
 </div>
 <div class="grid" style="margin-top:12px">
 <div class="field"><label>Live-Preise Deutschland</label><input type="text" value="Tankerkönig ist integriert" disabled aria-label="Tankerkönig ist integriert"></div>
@@ -41,13 +41,7 @@
 <div id="routeInfo" class="status">Noch keine Route berechnet.</div>
 </section>
 <section class="panel">
-<h2>3. Tankzeitpunkt</h2>
-<div id="fuelAdvice" class="status">Zeitfenster-Empfehlung erscheint nach der Suche.</div>
-<p class="note">Die Empfehlung nutzt die typische Tageskurve in Deutschland und – sobald vorhanden – lokal gespeicherte Preisbeobachtungen. Sie ist keine garantierte Vorhersage. Eine iPhone-Web-App kann Preise im geschlossenen Zustand nicht zuverlässig im Hintergrund sammeln.</p>
-</section>
-<section class="panel">
-<h2>4. Ergebnisse – günstigste zuerst</h2>
-<div id="topThree"></div>
+<h2>3. Ergebnisse</h2>
 <div id="results"><p class="note">Hier erscheinen gefundene Tankstellen. Weltweit sind Tankstellenstandorte nicht überall vollständig erfasst und Live-Preise sind je nach Land unterschiedlich verfügbar.</p></div>
 </section>
 <p class="footer">Datenquellen können zeitweise nicht erreichbar sein. Ein gefundener Standort bedeutet nicht automatisch, dass ein aktueller Kraftstoffpreis verfügbar ist. Diese Version zeigt fehlende Daten ausdrücklich an, statt Preise zu erfinden.</p>
@@ -57,7 +51,6 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const statusEl = $('status'), resultsEl = $('results'), routeInfo = $('routeInfo'), button = $('searchBtn'), gpsBtn = $('gpsBtn');
-const priceHistoryKey='spritbuk.priceHistory.v1';
 const STORAGE_KEY='spritbuk.settings.v1';
 // Eingebauter Tankerkönig-Schlüssel für die Deutschland-Suche. Achtung: In einer öffentlichen HTML-Datei ist er im Quelltext sichtbar.
 const TANKERKOENIG_API_KEY='e50d05bf-788e-4ad3-98e1-afc9191bac64';
@@ -68,22 +61,6 @@ function saveSettings(){try{const data={};savedFields.forEach(id=>data[id]=$(id)
 function status(message, type){ statusEl.className = 'status' + (type ? ' '+type : ''); statusEl.textContent = message; }
 function esc(value){return String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function money(value){return Number.isFinite(value) ? value.toLocaleString('de-DE',{style:'currency',currency:'EUR'}) : 'Preis nicht verfügbar';}
-function renderFuelAdvice(stations){
- const box=$('fuelAdvice'), now=new Date(), h=now.getHours(), m=now.getMinutes(), minutes=h*60+m;
- let title, detail;
- if(minutes<11*60+30){title='Eher jetzt tanken';detail='Die Preise liegen häufig am späten Vormittag besonders niedrig. Wenn du ohnehin tanken musst, warte nicht zwingend bis exakt 11:59 Uhr.';}
- else if(minutes<12*60){title='Gutes Zeitfenster – jetzt tanken';detail='In Deutschland dürfen Tankstellen seit April 2026 ihre Preise regulär nur einmal täglich um 12 Uhr erhöhen. Kurz davor lag das durchschnittliche Preistief in einer ADAC-Auswertung.';}
- else if(minutes<17*60){title='Wenn möglich, noch etwas warten';detail='Nach dem Mittagssprung sinken Preise im Tagesverlauf häufig wieder. Vergleiche die aktuellen Stationspreise; eine individuelle Preiswende ist nicht garantiert.';}
- else if(minutes<20*60){title='Abend ist oft ein gutes Zeitfenster';detail='Die durchschnittlichen Preise liegen häufig gegen frühen Abend wieder nahe oder unter dem Tagesmittel. Entscheidend bleibt der aktuelle Preis vor Ort.';}
- else {title='Aktuelle Preise vergleichen';detail='Späte Preise können günstig sein, aber günstige Stationen schließen teilweise früher. Prüfe Öffnungszeiten und den angezeigten Live-Preis.';}
- const priced=stations.filter(x=>x.price!=null).sort((a,b)=>a.price-b.price);
- const liters=Math.max(0,Number($('tank').value)||0);
- let extra='';
- if(priced.length>=2){const delta=priced[priced.length-1].price-priced[0].price;extra=' Preisabstand zwischen günstigster und teuerster gefundenen Station: '+money(delta)+'/l; bei '+liters+' l entspricht das bis zu '+money(delta*liters)+'.';}
- box.innerHTML='<strong>'+title+'</strong><br>'+detail+extra+'<div class="small" style="margin-top:7px">Stand: '+now.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})+' Uhr · Faustregel, keine individuelle Garantie.</div>';
- // Store observations only while the page is open; never imply background collection.
- try{const old=JSON.parse(localStorage.getItem(priceHistoryKey)||'[]');const stamp=Date.now();const additions=priced.map(s=>({id:s.stationId||s.name, name:s.name, fuel:$('fuel').value, price:s.price, at:stamp}));localStorage.setItem(priceHistoryKey,JSON.stringify(old.concat(additions).filter(x=>x.at>stamp-7*24*60*60*1000).slice(-500)));}catch(e){}
-}
 async function geocode(place){
  const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=1&q='+encodeURIComponent(place);
  const response=await fetch(url,{headers:{'Accept':'application/json'}});
@@ -129,16 +106,23 @@ function renderStations(stations, point){
  if(!stations.length){resultsEl.innerHTML='<p class="note">Im gewählten Radius wurden keine Tankstellen gefunden. Das kann auch an unvollständigen Kartendaten liegen.</p>';return;}
  const fuelName=$('fuel').selectedOptions[0].textContent, liters=Math.max(0,Number($('tank').value)||0), consumption=Math.max(0,Number($('consumption').value)||0);
  const hasPrices=stations.some(s=>s.price!=null);
- const cheapest=stations.filter(s=>s.price!=null).slice().sort((a,b)=>a.price-b.price).slice(0,3);
- $('topThree').innerHTML=cheapest.length?cheapest.map((s,i)=>'<article class="result"><span class="pill">Platz '+(i+1)+' · '+s.distance.toLocaleString('de-DE',{maximumFractionDigits:1})+' km</span><strong>'+esc(s.name)+'</strong><div class="small">'+esc(s.address)+'</div><div class="price">'+money(s.price)+'/l</div><div class="small">Bei '+(Math.max(0,Number($('tank').value)||0))+' l: '+money(s.price*Math.max(0,Number($('tank').value)||0))+' · Preis laut '+esc(s.priceSource||'Preisdienst')+'</div></article>').join(''):'<p class="note">Für diese Suche wurden keine aktuellen Preise geliefert. Deshalb kann ich keine drei günstigsten Tankstellen seriös benennen.</p>';
- renderFuelAdvice(stations);
- const sourceNote=['diesel','e5','e10'].includes($('fuel').value) ? 'Tankerkönig (Deutschland; integrierter API-Key)' : 'OpenStreetMap (Tankstellenstandorte, in der Regel ohne Live-Preise)';
- resultsEl.innerHTML='<p class="note">'+stations.length+' Tankstelle(n) · '+esc(fuelName)+' · '+esc(sourceNote)+'. '+(hasPrices?'Preise verfügbar; nach Preis sortiert, soweit vorhanden.':'Keine Live-Preise in den abgerufenen Daten. Ohne Tankerkönig-Schlüssel zeigt die App nur Standorte.')+'</p>'+stations.slice(0,40).map((s,i)=>{
-  const roundTripKm=s.distance*2, extraFuel=roundTripKm*consumption/100, price=s.price;
-  const savings=price==null?null:(liters*price - extraFuel*price);
-  return '<article class="result"><span class="pill">'+(i+1)+'. · '+s.distance.toLocaleString('de-DE',{maximumFractionDigits:1})+' km entfernt</span><strong>'+esc(s.name)+'</strong><div class="small">'+esc(s.address)+'</div><div class="price">'+(price==null?'Preis nicht verfügbar':money(price)+'/l')+'</div><div class="small">'+(price==null?'Für diese Station liegt aus der verwendeten Quelle kein Preis vor.':'Preisquelle: '+esc(s.priceSource||'Tankerkönig / MTS-K')+'. Aktualität kann abweichen.')+'</div><div class="small" style="margin-top:7px">Geschätzter Umweg für Hin- und Rückfahrt: '+roundTripKm.toLocaleString('de-DE',{maximumFractionDigits:1})+' km · zusätzlicher Kraftstoff ca. '+extraFuel.toLocaleString('de-DE',{maximumFractionDigits:2})+' l</div><div class="small">'+(price==null?'Vorteil nicht berechenbar.':'Nur rechnerisch, ohne Preisunterschied zu einer Alternative: '+money(savings)+'.')+'</div><div class="actions"><button class="secondary" type="button" data-map="'+s.lat+','+s.lon+'">In Karten öffnen</button>'+(s.website?'<button class="secondary" type="button" data-web="'+esc(s.website)+'">Website</button>':'<button class="secondary" type="button" data-copy="'+esc(s.name+' – '+s.address)+'">Details kopieren</button>')+'</div></article>';
+ const sourceNote=['diesel','e5','e10'].includes($('fuel').value) ? 'Tankerkönig (Deutschland)' : 'OpenStreetMap (Standorte; meist ohne Live-Preise)';
+ // Rangfolge nach geschätzten Gesamtkosten: Tankfüllung plus Kraftstoff für Hin- und Rückfahrt.
+ const ranked=stations.map(s=>{const roundTripKm=s.distance*2, extraFuel=roundTripKm*consumption/100; const total=s.price==null?null:liters*s.price+extraFuel*s.price; return {...s,roundTripKm,extraFuel,total};});
+ ranked.sort((a,b)=>{if(a.total!=null&&b.total!=null)return a.total-b.total;if(a.total!=null)return -1;if(b.total!=null)return 1;return a.distance-b.distance;});
+ const top=ranked.slice(0,3);
+ const cheapest=top.find(s=>s.total!=null);
+ const intro='<p class="note">'+top.length+' von '+stations.length+' gefundenen Tankstellen · '+esc(fuelName)+' · '+esc(sourceNote)+'. Angezeigt werden höchstens drei, sortiert nach geschätzten Gesamtkosten (Tankmenge + Hin- und Rückfahrt). '+(hasPrices?'Preisstände können sich kurzfristig ändern.':'Keine Live-Preise verfügbar; daher nach Entfernung sortiert.')+'</p>';
+ const cards=top.map((s,i)=>{
+  const extraCost=s.price==null?null:s.extraFuel*s.price;
+  const total=s.total;
+  const saving=cheapest&&total!=null?total-cheapest.total:null;
+  const savingsText=saving==null?'':(saving<0.005?'Günstigste Gesamtkosten':('+'+money(saving)+' gegenüber Platz 1'));
+  return '<article class="result"><span class="pill">'+(i+1)+'. Platz · '+s.distance.toLocaleString('de-DE',{maximumFractionDigits:1})+' km Luftlinie</span><strong>'+esc(s.name)+'</strong><div class="small">'+esc(s.address)+'</div><div class="price">'+(s.price==null?'Preis nicht verfügbar':money(s.price)+'/l')+'</div><div class="small">'+(s.price==null?'Für diese Station liegt kein Live-Preis vor.':'Preisquelle: '+esc(s.priceSource||'Tankerkönig / MTS-K')+'. Bitte Preis vor Abfahrt prüfen.')+'</div><div style="margin-top:10px;padding:10px;border-radius:10px;background:#131e30"><div class="small">Entfernungseffekt (geschätzte Hin- und Rückfahrt)</div><strong>'+s.roundTripKm.toLocaleString('de-DE',{maximumFractionDigits:1})+' km · '+s.extraFuel.toLocaleString('de-DE',{maximumFractionDigits:2})+' l zusätzlich</strong><div class="small">Kraftstoffkosten für die Fahrt: '+(extraCost==null?'nicht berechenbar':money(extraCost))+'</div><div style="margin-top:6px">Geschätzte Gesamtkosten: <strong>'+(total==null?'nicht berechenbar':money(total))+'</strong></div>'+(savingsText?'<div class="small">'+savingsText+'</div>':'')+'</div><div class="actions"><button class="secondary" type="button" data-map="'+s.lat+','+s.lon+'">In Karten öffnen</button>'+(s.website?'<button class="secondary" type="button" data-web="'+esc(s.website)+'">Website</button>':'<button class="secondary" type="button" data-copy="'+esc(s.name+' – '+s.address)+'">Details kopieren</button>')+'</div></article>';
  }).join('');
- resultsEl.querySelectorAll('[data-map]').forEach(b=>b.addEventListener('click',()=>window.open('https://www.openstreetmap.org/?mlat='+encodeURIComponent(b.dataset.map.split(',')[0])+'&mlon='+encodeURIComponent(b.dataset.map.split(',')[1])+'#map=17/'+b.dataset.map,'_blank','noopener')));
+ const fuelTime='<div class="result"><strong>Tankzeitpunkt</strong><div class="small">Als grobe Faustregel ist Tanken kurz vor 12 Uhr in Deutschland oft günstiger. Diese Empfehlung ist keine Vorhersage für die einzelnen Tankstellen. SpritBuk sammelt keine Preise im Hintergrund, wenn die App geschlossen ist.</div></div>';
+ resultsEl.innerHTML=intro+cards+fuelTime;
+ resultsEl.querySelectorAll('[data-map]').forEach(b=>b.addEventListener('click',()=>{const coords=b.dataset.map.split(',');window.open('https://www.openstreetmap.org/?mlat='+encodeURIComponent(coords[0])+'&mlon='+encodeURIComponent(coords[1])+'#map=17/'+coords[0]+'/'+coords[1],'_blank','noopener');}));
  resultsEl.querySelectorAll('[data-web]').forEach(b=>b.addEventListener('click',()=>{let u=b.dataset.web;if(!/^https?:\/\//i.test(u))u='https://'+u;window.open(u,'_blank','noopener');}));
  resultsEl.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(b.dataset.copy);b.textContent='Kopiert';}catch(e){b.textContent=b.dataset.copy;}}));
 }
