@@ -102,30 +102,44 @@ async function stationsNear(point, radiusKm, fuel){
  return list;
 }
 function distanceKm(lat1,lon1,lat2,lon2){const r=6371,rad=x=>x*Math.PI/180,dLat=rad(lat2-lat1),dLon=rad(lon2-lon1),a=Math.sin(dLat/2)**2+Math.cos(rad(lat1))*Math.cos(rad(lat2))*Math.sin(dLon/2)**2;return 2*r*Math.asin(Math.sqrt(a));}
-function renderStations(stations, point){
+async function roadDistanceKm(point, station){
+ // OSRM liefert die Straßenroute in Metern; Luftlinienwerte werden nicht als Fahrtstrecke ausgegeben.
+ const url='https://router.project-osrm.org/route/v1/driving/'+point.lon+','+point.lat+';'+station.lon+','+station.lat+'?overview=false&alternatives=false&steps=false';
+ const response=await fetch(url,{headers:{'Accept':'application/json'}});
+ if(!response.ok) throw new Error('Routingdienst antwortet mit HTTP '+response.status);
+ const data=await response.json();
+ if(data.code!=='Ok'||!data.routes||!data.routes.length) throw new Error('Keine Straßenroute verfügbar');
+ return data.routes[0].distance/1000;
+}
+async function renderStations(stations, point){
  if(!stations.length){resultsEl.innerHTML='<p class="note">Im gewählten Radius wurden keine Tankstellen gefunden. Das kann auch an unvollständigen Kartendaten liegen.</p>';return;}
  const fuelName=$('fuel').selectedOptions[0].textContent, liters=Math.max(0,Number($('tank').value)||0), consumption=Math.max(0,Number($('consumption').value)||0);
  const hasPrices=stations.some(s=>s.price!=null);
  const sourceNote=['diesel','e5','e10'].includes($('fuel').value) ? 'Tankerkönig (Deutschland)' : 'OpenStreetMap (Standorte; meist ohne Live-Preise)';
- // Rangfolge nach geschätzten Gesamtkosten: Tankfüllung plus Kraftstoff für Hin- und Rückfahrt.
- const ranked=stations.map(s=>{const roundTripKm=s.distance*2, extraFuel=roundTripKm*consumption/100; const total=s.price==null?null:liters*s.price+extraFuel*s.price; return {...s,roundTripKm,extraFuel,total};});
- ranked.sort((a,b)=>{if(a.total!=null&&b.total!=null)return a.total-b.total;if(a.total!=null)return -1;if(b.total!=null)return 1;return a.distance-b.distance;});
+ resultsEl.innerHTML='<p class="note">Straßenentfernungen und Fahrtkosten werden berechnet …</p>';
+ // Erst Kandidaten mit Preisen bevorzugen, dann höchstens 20 Kandidaten routen, um Routingdienst und Wartezeit zu begrenzen.
+ const candidates=[...stations].sort((a,b)=>{if(a.price!=null&&b.price!=null&&a.price!==b.price)return a.price-b.price;if(a.price!=null)return -1;if(b.price!=null)return 1;return a.distance-b.distance;}).slice(0,20);
+ const routed=await Promise.all(candidates.map(async s=>{try{const oneWayKm=await roadDistanceKm(point,s);const roundTripKm=oneWayKm*2;const extraFuel=roundTripKm*consumption/100;const extraCost=s.price==null?null:extraFuel*s.price;const total=s.price==null?null:liters*s.price+extraCost;return {...s,oneWayKm,roundTripKm,extraFuel,extraCost,total,routeAvailable:true};}catch(e){return {...s,oneWayKm:null,roundTripKm:null,extraFuel:null,extraCost:null,total:s.price==null?null:liters*s.price,routeAvailable:false};}}));
+ const withRoutes=routed.filter(s=>s.routeAvailable);
+ const ranked=(withRoutes.length?withRoutes:routed).sort((a,b)=>{if(a.total!=null&&b.total!=null)return a.total-b.total;if(a.total!=null)return -1;if(b.total!=null)return 1;return (a.distance??Infinity)-(b.distance??Infinity);});
  const top=ranked.slice(0,3);
  const cheapest=top.find(s=>s.total!=null);
- const intro='<p class="note">'+top.length+' von '+stations.length+' gefundenen Tankstellen · '+esc(fuelName)+' · '+esc(sourceNote)+'. Angezeigt werden höchstens drei, sortiert nach geschätzten Gesamtkosten (Tankmenge + Hin- und Rückfahrt). '+(hasPrices?'Preisstände können sich kurzfristig ändern.':'Keine Live-Preise verfügbar; daher nach Entfernung sortiert.')+'</p>';
+ const intro='<p class="note">'+top.length+' von '+stations.length+' gefundenen Tankstellen · '+esc(fuelName)+' · '+esc(sourceNote)+'. Angezeigt werden höchstens drei. Fahrtkosten berücksichtigen die geschätzte Straßenroute für Hin- und Rückfahrt. '+(withRoutes.length?'Straßenentfernungen über Routingdienst berechnet. ':'Achtung: Straßenrouting nicht erreichbar; Gesamtkosten und Rangfolge sind deshalb nicht verlässlich. ')+(hasPrices?'Preisstände können sich kurzfristig ändern.':'Keine Live-Preise verfügbar.')+'</p>';
  const cards=top.map((s,i)=>{
-  const extraCost=s.price==null?null:s.extraFuel*s.price;
   const total=s.total;
   const saving=cheapest&&total!=null?total-cheapest.total:null;
   const savingsText=saving==null?'':(saving<0.005?'Günstigste Gesamtkosten':('+'+money(saving)+' gegenüber Platz 1'));
-  return '<article class="result"><span class="pill">'+(i+1)+'. Platz · '+s.distance.toLocaleString('de-DE',{maximumFractionDigits:1})+' km Luftlinie</span><strong>'+esc(s.name)+'</strong><div class="small">'+esc(s.address)+'</div><div class="price">'+(s.price==null?'Preis nicht verfügbar':money(s.price)+'/l')+'</div><div class="small">'+(s.price==null?'Für diese Station liegt kein Live-Preis vor.':'Preisquelle: '+esc(s.priceSource||'Tankerkönig / MTS-K')+'. Bitte Preis vor Abfahrt prüfen.')+'</div><div style="margin-top:10px;padding:10px;border-radius:10px;background:#131e30"><div class="small">Entfernungseffekt (geschätzte Hin- und Rückfahrt)</div><strong>'+s.roundTripKm.toLocaleString('de-DE',{maximumFractionDigits:1})+' km · '+s.extraFuel.toLocaleString('de-DE',{maximumFractionDigits:2})+' l zusätzlich</strong><div class="small">Kraftstoffkosten für die Fahrt: '+(extraCost==null?'nicht berechenbar':money(extraCost))+'</div><div style="margin-top:6px">Geschätzte Gesamtkosten: <strong>'+(total==null?'nicht berechenbar':money(total))+'</strong></div>'+(savingsText?'<div class="small">'+savingsText+'</div>':'')+'</div><div class="actions"><button class="secondary" type="button" data-map="'+s.lat+','+s.lon+'">In Karten öffnen</button>'+(s.website?'<button class="secondary" type="button" data-web="'+esc(s.website)+'">Website</button>':'<button class="secondary" type="button" data-copy="'+esc(s.name+' – '+s.address)+'">Details kopieren</button>')+'</div></article>';
+  const distanceLabel=s.routeAvailable?s.oneWayKm.toLocaleString('de-DE',{maximumFractionDigits:1})+' km Straßenroute einfach':'Straßenroute nicht verfügbar';
+  const distanceEffect=s.routeAvailable?(s.roundTripKm.toLocaleString('de-DE',{maximumFractionDigits:1})+' km hin und zurück · '+s.extraFuel.toLocaleString('de-DE',{maximumFractionDigits:2})+' l zusätzlich'):'Fahrtkosten nicht berechnet, da keine Straßenroute vorliegt.';
+  return '<article class="result"><span class="pill">'+(i+1)+'. Platz · '+distanceLabel+'</span><strong>'+esc(s.name)+'</strong><div class="small">'+esc(s.address)+'</div><div class="price">'+(s.price==null?'Preis nicht verfügbar':money(s.price)+'/l')+'</div><div class="small">'+(s.price==null?'Für diese Station liegt kein Live-Preis vor.':'Preisquelle: '+esc(s.priceSource||'Tankerkönig / MTS-K')+'. Bitte Preis vor Abfahrt prüfen.')+'</div><div style="margin-top:10px;padding:10px;border-radius:10px;background:#131e30"><div class="small">Entfernungseffekt (geschätzte Straßenroute)</div><strong>'+distanceEffect+'</strong><div class="small">Kraftstoffkosten für die Fahrt: '+(s.extraCost==null?'nicht berechenbar':money(s.extraCost))+'</div><div style="margin-top:6px">Geschätzte Gesamtkosten: <strong>'+(total==null?'nicht berechenbar':money(total))+'</strong></div>'+(savingsText?'<div class="small">'+savingsText+'</div>':'')+'</div><div class="actions"><button class="secondary" type="button" data-map="'+s.lat+','+s.lon+'">In Karten öffnen</button>'+(s.website?'<button class="secondary" type="button" data-web="'+esc(s.website)+'">Website</button>':'<button class="secondary" type="button" data-copy="'+esc(s.name+' – '+s.address)+'">Details kopieren</button>')+'</div></article>';
  }).join('');
- const fuelTime='<div class="result"><strong>Tankzeitpunkt</strong><div class="small">Als grobe Faustregel ist Tanken kurz vor 12 Uhr in Deutschland oft günstiger. Diese Empfehlung ist keine Vorhersage für die einzelnen Tankstellen. SpritBuk sammelt keine Preise im Hintergrund, wenn die App geschlossen ist.</div></div>';
+ const fuelTime='<div class="result"><strong>Tankzeitpunkt</strong><div class="small">Als grobe Faustregel ist Tanken kurz vor 12 Uhr in Deutschland oft günstiger. Diese Empfehlung ist keine Vorhersage für einzelne Tankstellen. SpritBuk sammelt keine Preise im Hintergrund, wenn die App geschlossen ist.</div></div>';
  resultsEl.innerHTML=intro+cards+fuelTime;
  resultsEl.querySelectorAll('[data-map]').forEach(b=>b.addEventListener('click',()=>{const coords=b.dataset.map.split(',');window.open('https://www.openstreetmap.org/?mlat='+encodeURIComponent(coords[0])+'&mlon='+encodeURIComponent(coords[1])+'#map=17/'+coords[0]+'/'+coords[1],'_blank','noopener');}));
  resultsEl.querySelectorAll('[data-web]').forEach(b=>b.addEventListener('click',()=>{let u=b.dataset.web;if(!/^https?:\/\//i.test(u))u='https://'+u;window.open(u,'_blank','noopener');}));
  resultsEl.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(b.dataset.copy);b.textContent='Kopiert';}catch(e){b.textContent=b.dataset.copy;}}));
 }
+
 async function doSearch(){
  const place=$('place').value.trim(); if(!gpsPoint && !place){status('Bitte GPS-Standort ermitteln oder einen Ort eingeben.','error');$('place').focus();return;}
  button.disabled=true;button.innerHTML='<span class="spinner"></span>Suche läuft …';resultsEl.innerHTML='<p class="note">Suche läuft. Je nach Verbindung kann das einige Sekunden dauern.</p>';routeInfo.textContent='Noch keine Route berechnet.';
@@ -133,7 +147,7 @@ async function doSearch(){
   status(gpsPoint?'GPS-Standort wird verwendet …':'Ort wird gesucht …'); const point=gpsPoint?gpsPoint:await geocode(place);
   status('Ort gefunden: '+point.display+'\nTankstellen im Umkreis werden abgefragt …');
   const stations=await stationsNear(point,Number($('radius').value),$('fuel').value);
-  renderStations(stations,point);
+  await renderStations(stations,point);
   status('Suche abgeschlossen. '+stations.length+' Tankstelle(n) gefunden. '+(stations.some(s=>s.price!=null)?'Preise wurden abgerufen.':'Es wurden keine aktuellen Preise geliefert. Prüfe bei Deutschland die API-Antwort; für andere Länder ist eine landesspezifische Preisquelle nötig.'),'good');
   const dest=$('destination').value.trim();
   if(dest){routeInfo.textContent='Ziel eingetragen: '+dest+'. Eine Routen- und Zwischenstoppoptimierung ist in dieser Basisversion noch nicht zuverlässig verfügbar.';}
