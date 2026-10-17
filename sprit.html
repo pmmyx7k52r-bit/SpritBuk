@@ -157,14 +157,14 @@ async function routeStations(start, destination, fuel, country='de'){
   const found=await stationsNear(p,5,fuel,country);
   for(const st of found){if(!collected.has(st.stationId||st.name+'|'+st.lat+'|'+st.lon))collected.set(st.stationId||st.name+'|'+st.lat+'|'+st.lon,st);}
   done++;
-  routeInfo.textContent='Route berechnet ('+route.distance/1000 .toFixed+' km). Tankstellenkorridor wird geprüft: '+done+' von '+sample.length+' Abschnitten …';
+  routeInfo.textContent='Route berechnet ('+(route.distance/1000).toLocaleString('de-DE',{maximumFractionDigits:1})+' km). Tankstellenkorridor wird geprüft: '+done+' von '+sample.length+' Abschnitten …';
  }
  return {route,stations:[...collected.values()]};
 }
 async function renderRouteStations(stations,start,destination,baseRouteKm){
  const liters=Math.max(0,Number($('tank').value)||0),consumption=Math.max(0,Number($('consumption').value)||0),fuelName=$('fuel').selectedOptions[0].textContent;
  if(start.country==='hr'){
-  const candidates=stations.slice(0,60), routed=[];
+  const candidates=stations.filter(st=>!st.isMotorway).sort((a,b)=>a.distance-b.distance).slice(0,100), routed=[];
   for(let i=0;i<candidates.length;i++){
    const st=candidates[i];
    try{const via=await osrmRoute([start,st,destination],'false');routed.push({...st,viaKm:via.distance/1000,detourKm:Math.max(0,via.distance/1000-baseRouteKm)});}catch(e){}
@@ -203,9 +203,13 @@ async function renderStations(stations, point){
  if(!stations.length){resultsEl.innerHTML='<p class="note">Im gewählten Radius wurden keine Tankstellen gefunden. Das kann auch an unvollständigen Kartendaten liegen.</p>';return;}
  const fuelName=$('fuel').selectedOptions[0].textContent, liters=Math.max(0,Number($('tank').value)||0), consumption=Math.max(0,Number($('consumption').value)||0);
  if(point.country==='hr'){
-  const top=stations.slice(0,3);
-  const cards=top.map((st,i)=>'<article class="result"><span class="pill">'+(i+1)+'. · '+(st.isMotorway?'Autobahnstation / Preis kann abweichen':'vermutlich außerhalb der Autobahn')+'</span><strong>'+esc(st.name)+'</strong><div class="small">'+esc(st.address)+'</div><div class="price">'+(st.price==null?'Kein bestätigter Preis':money(st.price)+'/l')+'</div><div class="small">'+(st.price!=null?'Regulierter Höchstpreis als Richtwert, kein Live-Preis.':'Autobahnpreis oder Kraftstoffpreis nicht verfügbar. OSM-Kennzeichnung ist nicht immer vollständig.')+'</div><div class="small">'+st.distance.toLocaleString('de-DE',{maximumFractionDigits:1})+' km Luftlinie vom Suchort; Straßenroute wird beim Öffnen in der Karten-App berechnet.</div><div class="actions"><button class="secondary" data-google="'+st.lat+','+st.lon+'">Google Maps</button><button class="secondary" data-apple="'+st.lat+','+st.lon+'">Apple Karten</button></div></article>').join('');
-  resultsEl.innerHTML='<p class="note">Kroatien: Für normalen Kraftstoff abseits der Autobahn gilt der regulierte Höchstpreis. An Autobahntankstellen können die Preise abweichen. Es wird deshalb kein künstliches Ranking nach Preis erstellt; die Stationen werden nach Nähe angezeigt. Die Unterscheidung beruht auf OpenStreetMap-Kennzeichnungen und kann unvollständig sein.</p>'+cards;
+  resultsEl.innerHTML='<p class="note">Kroatien: Berechne tatsächliche Straßenentfernungen zu Tankstellen …</p>';
+  const candidates=[...stations].filter(st=>!st.isMotorway).slice(0,60);
+  const routed=await Promise.all(candidates.map(async st=>{try{return {...st,roadKm:await roadDistanceKm(point,st),routeAvailable:true};}catch(e){return {...st,roadKm:null,routeAvailable:false};}}));
+  const top=routed.filter(st=>st.routeAvailable&&st.roadKm<=Number($('radius').value)+0.05).sort((a,b)=>a.roadKm-b.roadKm).slice(0,3);
+  if(!top.length){resultsEl.innerHTML='<p class="note">Keine Tankstelle mit verfügbarer Straßenroute innerhalb des gewählten Suchradius gefunden. Erhöhe den Radius oder versuche es später erneut. Luftlinien werden nicht als Straßenentfernung ausgegeben.</p>';return;}
+  const cards=top.map((st,i)=>'<article class="result"><span class="pill">'+(i+1)+'. · '+st.roadKm.toLocaleString('de-DE',{maximumFractionDigits:1})+' km Straßenroute</span><strong>'+esc(st.name)+'</strong><div class="small">'+esc(st.address)+'</div><div class="price">'+(st.isMotorway?'Autobahnpreis nicht bekannt':'Regulierter Preis als Richtwert')+'</div><div class="small">'+(st.isMotorway?'Autobahntankstelle: Preis kann höher sein.':'Kein Einzelpreisvergleich: Der regulierte Preis gilt als Orientierung für gewöhnlichen Kraftstoff außerhalb der Autobahn.')+'</div><div class="small">Entfernung über das Straßennetz vom Suchort, nicht Luftlinie. Die Straßenroute kann je nach Zufahrt abweichen.</div><div class="actions"><button class="secondary" data-google="'+st.lat+','+st.lon+'">Google Maps</button><button class="secondary" data-apple="'+st.lat+','+st.lon+'">Apple Karten</button></div></article>').join('');
+  resultsEl.innerHTML='<p class="note">Kroatien: Keine Preisrangliste. Angezeigt werden bis zu drei Tankstellen abseits der Autobahn, sortiert nach tatsächlicher Straßenentfernung. Der gewählte Radius wird ebenfalls anhand der Straßenroute geprüft. Die Autobahn-Erkennung beruht auf OpenStreetMap-Kennzeichnungen und kann unvollständig sein.</p>'+cards;
   resultsEl.querySelectorAll('[data-google]').forEach(b=>b.addEventListener('click',()=>{const c=b.dataset.google.split(',');window.open('https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(c[0]+','+c[1])+'&travelmode=driving','_blank','noopener');}));
   resultsEl.querySelectorAll('[data-apple]').forEach(b=>b.addEventListener('click',()=>{const c=b.dataset.apple.split(',');window.open('https://maps.apple.com/?daddr='+encodeURIComponent(c[0]+','+c[1])+'&dirflg=d','_blank','noopener');}));
   return;
