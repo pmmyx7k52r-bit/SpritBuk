@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0f172a">
-<title>SpritBuk v2.6.6 – Tankstellen finden</title>
+<title>SpritBuk v2.6.7 – Tankstellen finden</title>
 <style>
 :root{color-scheme:dark;--bg:#0b1220;--panel:#131e30;--panel2:#1b2940;--text:#eef4ff;--muted:#a9b8ce;--accent:#5ee0b5;--line:#2b3b54;--danger:#ffb4ab}*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#101a2c,#080e18);color:var(--text);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{max-width:760px;margin:auto;padding:22px 16px 44px}.hero{padding:8px 2px 18px}h1{font-size:clamp(28px,7vw,40px);margin:0 0 5px;letter-spacing:-.04em}.sub{color:var(--muted);margin:0}.panel{background:rgba(19,30,48,.96);border:1px solid var(--line);border-radius:18px;padding:17px;margin:12px 0;box-shadow:0 12px 35px #0002}h2{font-size:18px;margin:0 0 14px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{display:flex;flex-direction:column;gap:6px;min-width:0}label{font-size:13px;color:var(--muted)}input,select,button{font:inherit;border-radius:11px;min-height:46px;width:100%}input,select{color:var(--text);background:#0b1423;border:1px solid #354862;padding:10px 12px}input::placeholder{color:#71839d}button{border:0;padding:12px 16px;font-weight:750;cursor:pointer}.primary{background:var(--accent);color:#06241b;margin-top:14px}.secondary{background:#26364d;color:var(--text);border:1px solid #3a4d68}.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.note{font-size:13px;color:var(--muted);margin:10px 0 0}.status{white-space:pre-wrap;border-radius:12px;padding:12px 13px;background:#0b1423;border:1px solid var(--line);color:var(--muted);margin-top:12px;min-height:46px}.status.error{color:var(--danger);border-color:#76433f}.status.good{color:var(--accent)}.result{border:1px solid var(--line);background:#0c1626;border-radius:13px;padding:13px;margin-top:10px}.result strong{display:block;font-size:16px}.price{font-size:24px;font-weight:800;color:var(--accent);margin:5px 0}.small{font-size:13px;color:var(--muted)}.pill{display:inline-block;border:1px solid #3b526d;border-radius:99px;padding:3px 9px;font-size:12px;color:var(--muted);margin-bottom:8px}.hidden{display:none}.footer{font-size:12px;color:#8496af;padding:8px 3px}.spinner{display:inline-block;width:14px;height:14px;border:2px solid #52647a;border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px;margin-right:7px}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:480px){.grid{grid-template-columns:1fr 1fr}.panel{padding:14px}.actions{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <main>
-<header class="hero"><div class="pill">BETA · weltweite Tankstellensuche · v2.6.6</div><h1>⛽ SpritBuk <span style="font-size:14px;color:var(--muted);font-weight:600">v2.6.6</span></h1><p class="sub">Tankstellen finden, Preise vergleichen und Umwege einschätzen.</p><p class="note">Version 2.6.5 · 27.10.2026 · Versionskennung, alternative Kartenserver bei HTTP 502 und Kostenvergleich mit zusätzlicher Fahrstrecke</p></header>
+<header class="hero"><div class="pill">BETA · weltweite Tankstellensuche · v2.6.7</div><h1>⛽ SpritBuk <span style="font-size:14px;color:var(--muted);font-weight:600">v2.6.7</span></h1><p class="sub">Tankstellen finden, Preise vergleichen und Umwege einschätzen.</p><p class="note">Version 2.6.7 · 28.10.2026 · optionale NextGIS-Verbindung, begrenzte Anfragen und verständlichere Fehlermeldungen</p></header>
 <section class="panel">
 <h2>1. Suche einstellen</h2>
 <div class="field"><label for="place">Ort oder Adresse</label><input id="place" autocomplete="street-address" placeholder="z. B. Frechen oder aktuelle Adresse" value=""></div>
@@ -31,6 +31,7 @@
 <div class="field"><label for="tank">Geplante Tankmenge (Liter)</label><input id="tank" type="number" min="1" max="200" step="1" value="30"></div>
 </div>
 <p class="note" id="saveNote">Fahrzeugdaten werden auf diesem Gerät gespeichert. Deutschland nutzt Tankerkönig. In Kroatien vergleicht SpritBuk nicht pauschal Preise: abseits der Autobahn gilt für normalen Kraftstoff der regulierte Höchstpreis; an Autobahntankstellen können Preise abweichen.</p>
+<div class="field" style="margin-top:12px"><label for="nextgisEndpoint">Optionaler Ausweich-Kartendienst (NextGIS API-URL)</label><input id="nextgisEndpoint" type="url" inputmode="url" placeholder="https://overpass.nextgis.com/DEIN_API_KEY/api/interpreter" autocomplete="off"><p class="note">Die öffentlichen Kartendienste waren bei deinem Test nicht erreichbar. NextGIS benötigt eine kostenlose persönliche API-URL aus einem NextGIS-Konto. Wenn du sie einträgst, wird sie zuerst versucht und lokal auf diesem Gerät gespeichert.</p></div>
 <button class="primary" id="searchBtn" type="button">Tankstellen finden</button>
 <div id="status" class="status" role="status" aria-live="polite">Gib einen Ort ein und starte die Suche. Die Oberfläche funktioniert auch ohne Kartenverbindung.</div>
 </section>
@@ -42,9 +43,9 @@
 </section>
 <section class="panel">
 <h2>3. Ergebnisse</h2>
-<div id="results"><p class="note"><strong>SpritBuk v2.6.6</strong><br>Die Ergebnisse erscheinen hier nach dem Start der Suche. Bei jeder Tankstelle werden, sofern Preis und Straßenroute vorliegen, die geschätzten Fahrtkosten und der Vergleich zur nächstgelegenen vergleichbaren Tankstelle angezeigt.</p></div>
+<div id="results"><p class="note"><strong>SpritBuk v2.6.7</strong><br>Die Ergebnisse erscheinen hier nach dem Start der Suche. Bei jeder Tankstelle werden, sofern Preis und Straßenroute vorliegen, die geschätzten Fahrtkosten und der Vergleich zur nächstgelegenen vergleichbaren Tankstelle angezeigt.</p></div>
 </section>
-<p class="footer">Datenquellen können zeitweise nicht erreichbar sein. Ein gefundener Standort bedeutet nicht automatisch, dass ein aktueller Kraftstoffpreis verfügbar ist. SpritBuk v2.6.6 · 28.10.2026. Netzwerkanfragen brechen nach spätestens 8–10 Sekunden je Anfrage ab; drei Kartenserver werden nacheinander versucht. Fehlende Preise werden ausdrücklich angezeigt, statt erfunden zu werden.</p>
+<p class="footer">Datenquellen können zeitweise nicht erreichbar sein. Ein gefundener Standort bedeutet nicht automatisch, dass ein aktueller Kraftstoffpreis verfügbar ist. SpritBuk v2.6.7 · 28.10.2026. Jede Netzwerkanfrage hat ein Zeitlimit; die Kartensuche probiert höchstens drei öffentliche Dienste plus optional deine persönliche NextGIS-URL. Fehlende Preise werden ausdrücklich angezeigt, statt erfunden zu werden.</p>
 </main>
 <script>
 (function(){
@@ -55,7 +56,7 @@ const STORAGE_KEY='spritbuk.settings.v1';
 // Eingebauter Tankerkönig-Schlüssel für die Deutschland-Suche. Achtung: In einer öffentlichen HTML-Datei ist er im Quelltext sichtbar.
 const TANKERKOENIG_API_KEY='e50d05bf-788e-4ad3-98e1-afc9191bac64';
 let gpsPoint=null;
-const savedFields=['vehicle','consumption','tankCapacity','tank','fuel','radius','destination'];
+const savedFields=['vehicle','consumption','tankCapacity','tank','fuel','radius','destination','nextgisEndpoint'];
 function loadSettings(){try{const data=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');savedFields.forEach(id=>{if(id!=='fuel' && data[id]!==undefined && $(id))$(id).value=String(data[id]);});$('fuel').value='e5';data.fuel='e5';localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}catch(e){$('fuel').value='e5';$('saveNote').textContent='Speicherung ist in dieser Vorschau nicht verfügbar; Eingaben bleiben möglicherweise nicht erhalten.';}}
 function saveSettings(){try{const data={};savedFields.forEach(id=>data[id]=$(id).value);localStorage.setItem(STORAGE_KEY,JSON.stringify(data));$('saveNote').textContent='Fahrzeugdaten und Einstellungen sind auf diesem Gerät gespeichert.';}catch(e){$('saveNote').textContent='Speichern nicht möglich (z. B. wegen Browser-/Vorschau-Einschränkungen).';}}
 function configureFuelOptions(country){
@@ -149,22 +150,28 @@ async function reverseGeocode(point){
 }
 // OpenStreetMap-Overpass: bei 502/Überlastung automatisch alternative öffentliche Instanz versuchen.
 async function fetchOverpass(query){
- const endpoints=[
-  'https://overpass.private.coffee/api/interpreter',
-  'https://overpass-api.de/api/interpreter',
-  'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
- ];
- let lastError=null;
+ const custom=String($('nextgisEndpoint')?.value||'').trim().replace(/\/$/,'');
+ const endpoints=[];
+ if(custom){
+  if(!/^https:\/\/overpass\.nextgis\.com\/[^\s]+\/api\/interpreter$/i.test(custom)){
+   throw new Error('Die NextGIS-URL hat nicht das erwartete Format. Bitte die persönliche URL aus NextGIS vollständig einfügen (https://overpass.nextgis.com/…/api/interpreter).');
+  }
+  endpoints.push(custom);
+ }
+ endpoints.push('https://overpass.private.coffee/api/interpreter','https://overpass-api.de/api/interpreter','https://maps.mail.ru/osm/tools/overpass/api/interpreter');
+ let errors=[];
  for(const endpoint of endpoints){
   try{
    const response=await fetchTimed(endpoint+'?data='+encodeURIComponent(query),{headers:{'Accept':'application/json'},cache:'no-store'},8000);
    if(!response.ok) throw new Error('HTTP '+response.status+' bei '+new URL(endpoint).host);
    const data=await response.json();
    if(!data||!Array.isArray(data.elements)) throw new Error('Ungültige Antwort von '+new URL(endpoint).host);
+   saveSettings();
    return data;
-  }catch(e){lastError=e;}
+  }catch(e){errors.push((new URL(endpoint)).host+': '+(e?.message||'unbekannter Fehler'));}
  }
- throw new Error('Tankstellen-Kartendienst nicht erreichbar. Drei OpenStreetMap-Abfragen sind fehlgeschlagen. Letzter Fehler: '+(lastError?.message||'unbekannt')+'. Bitte später erneut versuchen.');
+ const customHint=custom?' Auch die persönliche NextGIS-URL ist fehlgeschlagen.':' Für eine zusätzliche, eigene Ausweichmöglichkeit kannst du eine persönliche NextGIS-API-URL eintragen (Anleitung: https://nextgis.com/blog/nextgis-overpass-api-server/).';
+ throw new Error('Tankstellen-Kartendienst nicht erreichbar. Alle '+endpoints.length+' Versuche sind fehlgeschlagen: '+errors.join(' · ')+'. Die Suche wurde beendet; es läuft keine Endlosschleife.'+customHint);
 }
 async function stationsNear(point, radiusKm, fuel, country='de'){
  const apiKey=TANKERKOENIG_API_KEY;
@@ -414,14 +421,14 @@ async function doSearch(){
    routeInfo.textContent='Route berechnet: '+(point.display||'Startort')+' → '+destination.display+'.';
    status('Routensuche abgeschlossen. '+result.stations.length+' eindeutige Tankstellenkandidaten entlang der geprüften Route gefunden. Preise und Umwege wurden soweit verfügbar verglichen.','good');
   } else {
-   const stations=await stationsNear(point,Math.min(25,Math.max(Number($('radius').value),25)),$('fuel').value,point.country||'de');
+   const stations=await stationsNear(point,Math.min(25,Math.max(Number($('radius').value)||10,1)),$('fuel').value,point.country||'de');
    await renderStations(stations,point);
    status('Suche abgeschlossen. '+stations.length+' Tankstelle(n) gefunden. '+(stations.some(s=>s.price!=null)?'Preise wurden abgerufen.':'Es wurden keine aktuellen Preise geliefert.'),'good');
    routeInfo.textContent='Kein Zielort eingetragen. Die Ergebnisse beziehen sich auf den Suchort.';
   }
  }catch(err){
   console.error(err);
-  status((err&&err.message?err.message:'Unbekannter Fehler')+'\n\nFalls du die App in einer eingebetteten Vorschau geöffnet hast, kann diese externe Kartenanfragen blockieren. Öffne die HTML-Datei in Safari über eine veröffentlichte HTTPS-Seite, um es erneut zu testen.','error');
+  status((err&&err.message?err.message:'Unbekannter Fehler')+'\n\nDu verwendest SpritBuk über HTTPS? Dann ist die Vorschau-Erklärung nicht relevant. Bei wiederholten Serverfehlern bitte später erneut versuchen oder eine persönliche NextGIS-API-URL hinterlegen.','error');
   resultsEl.innerHTML='<p class="note">Keine Ergebnisse abrufbar. Die App-Oberfläche ist weiterhin verfügbar; es wurden keine Preise oder Tankstellen erfunden.</p>';
  }finally{button.disabled=false;button.textContent='Tankstellen finden';}
 }
