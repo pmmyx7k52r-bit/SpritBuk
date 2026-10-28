@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0f172a">
-<title>SpritBuk v2.6.4 – Tankstellen finden</title>
+<title>SpritBuk v2.6.5 – Tankstellen finden</title>
 <style>
 :root{color-scheme:dark;--bg:#0b1220;--panel:#131e30;--panel2:#1b2940;--text:#eef4ff;--muted:#a9b8ce;--accent:#5ee0b5;--line:#2b3b54;--danger:#ffb4ab}*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#101a2c,#080e18);color:var(--text);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{max-width:760px;margin:auto;padding:22px 16px 44px}.hero{padding:8px 2px 18px}h1{font-size:clamp(28px,7vw,40px);margin:0 0 5px;letter-spacing:-.04em}.sub{color:var(--muted);margin:0}.panel{background:rgba(19,30,48,.96);border:1px solid var(--line);border-radius:18px;padding:17px;margin:12px 0;box-shadow:0 12px 35px #0002}h2{font-size:18px;margin:0 0 14px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{display:flex;flex-direction:column;gap:6px;min-width:0}label{font-size:13px;color:var(--muted)}input,select,button{font:inherit;border-radius:11px;min-height:46px;width:100%}input,select{color:var(--text);background:#0b1423;border:1px solid #354862;padding:10px 12px}input::placeholder{color:#71839d}button{border:0;padding:12px 16px;font-weight:750;cursor:pointer}.primary{background:var(--accent);color:#06241b;margin-top:14px}.secondary{background:#26364d;color:var(--text);border:1px solid #3a4d68}.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.note{font-size:13px;color:var(--muted);margin:10px 0 0}.status{white-space:pre-wrap;border-radius:12px;padding:12px 13px;background:#0b1423;border:1px solid var(--line);color:var(--muted);margin-top:12px;min-height:46px}.status.error{color:var(--danger);border-color:#76433f}.status.good{color:var(--accent)}.result{border:1px solid var(--line);background:#0c1626;border-radius:13px;padding:13px;margin-top:10px}.result strong{display:block;font-size:16px}.price{font-size:24px;font-weight:800;color:var(--accent);margin:5px 0}.small{font-size:13px;color:var(--muted)}.pill{display:inline-block;border:1px solid #3b526d;border-radius:99px;padding:3px 9px;font-size:12px;color:var(--muted);margin-bottom:8px}.hidden{display:none}.footer{font-size:12px;color:#8496af;padding:8px 3px}.spinner{display:inline-block;width:14px;height:14px;border:2px solid #52647a;border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px;margin-right:7px}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:480px){.grid{grid-template-columns:1fr 1fr}.panel{padding:14px}.actions{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <main>
-<header class="hero"><div class="pill">BETA · weltweite Tankstellensuche · v2.6.4</div><h1>⛽ SpritBuk <span style="font-size:14px;color:var(--muted);font-weight:600">v2.6.4</span></h1><p class="sub">Tankstellen finden, Preise vergleichen und Umwege einschätzen.</p><p class="note">Version 2.6.4 · 27.10.2026 · sichtbare Versionskennung und Kostenvergleich mit zusätzlicher Fahrstrecke</p></header>
+<header class="hero"><div class="pill">BETA · weltweite Tankstellensuche · v2.6.5</div><h1>⛽ SpritBuk <span style="font-size:14px;color:var(--muted);font-weight:600">v2.6.5</span></h1><p class="sub">Tankstellen finden, Preise vergleichen und Umwege einschätzen.</p><p class="note">Version 2.6.5 · 27.10.2026 · Versionskennung, alternative Kartenserver bei HTTP 502 und Kostenvergleich mit zusätzlicher Fahrstrecke</p></header>
 <section class="panel">
 <h2>1. Suche einstellen</h2>
 <div class="field"><label for="place">Ort oder Adresse</label><input id="place" autocomplete="street-address" placeholder="z. B. Frechen oder aktuelle Adresse" value=""></div>
@@ -42,9 +42,9 @@
 </section>
 <section class="panel">
 <h2>3. Ergebnisse</h2>
-<div id="results"><p class="note"><strong>SpritBuk v2.6.4</strong><br>Die Ergebnisse erscheinen hier nach dem Start der Suche. Bei jeder Tankstelle werden, sofern Preis und Straßenroute vorliegen, die geschätzten Fahrtkosten und der Vergleich zur nächstgelegenen vergleichbaren Tankstelle angezeigt.</p></div>
+<div id="results"><p class="note"><strong>SpritBuk v2.6.5</strong><br>Die Ergebnisse erscheinen hier nach dem Start der Suche. Bei jeder Tankstelle werden, sofern Preis und Straßenroute vorliegen, die geschätzten Fahrtkosten und der Vergleich zur nächstgelegenen vergleichbaren Tankstelle angezeigt.</p></div>
 </section>
-<p class="footer">Datenquellen können zeitweise nicht erreichbar sein. Ein gefundener Standort bedeutet nicht automatisch, dass ein aktueller Kraftstoffpreis verfügbar ist. SpritBuk v2.6.4 · 27.10.2026. Diese Version zeigt fehlende Daten ausdrücklich an, statt Preise zu erfinden.</p>
+<p class="footer">Datenquellen können zeitweise nicht erreichbar sein. Ein gefundener Standort bedeutet nicht automatisch, dass ein aktueller Kraftstoffpreis verfügbar ist. SpritBuk v2.6.5 · 27.10.2026. Diese Version versucht bei HTTP 502 automatisch alternative Kartenserver. Fehlende Preise werden ausdrücklich angezeigt, statt erfunden zu werden.</p>
 </main>
 <script>
 (function(){
@@ -138,15 +138,32 @@ async function reverseGeocode(point){
  try{const r=await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat='+point.lat+'&lon='+point.lon+'&zoom=10&addressdetails=1',{headers:{'Accept':'application/json'}});if(r.ok){const d=await r.json();return {...point,display:d.display_name||point.display,country:(d.address||{}).country_code||'de'};}}catch(e){}
  return {...point,country:'de'};
 }
+// OpenStreetMap-Overpass: bei 502/Überlastung automatisch alternative öffentliche Instanz versuchen.
+async function fetchOverpass(query){
+ const endpoints=[
+  'https://overpass.private.coffee/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
+ ];
+ let lastError=null;
+ for(const endpoint of endpoints){
+  try{
+   const response=await fetch(endpoint+'?data='+encodeURIComponent(query),{headers:{'Accept':'application/json'},cache:'no-store'});
+   if(!response.ok) throw new Error('HTTP '+response.status+' bei '+new URL(endpoint).host);
+   const data=await response.json();
+   if(!data||!Array.isArray(data.elements)) throw new Error('Ungültige Antwort von '+new URL(endpoint).host);
+   return data;
+  }catch(e){lastError=e;}
+ }
+ throw new Error('Tankstellen-Kartendienst nicht erreichbar. Drei OpenStreetMap-Abfragen sind fehlgeschlagen. Letzter Fehler: '+(lastError?.message||'unbekannt')+'. Bitte später erneut versuchen.');
+}
 async function stationsNear(point, radiusKm, fuel, country='de'){
  const apiKey=TANKERKOENIG_API_KEY;
  // Kroatien: Tankerkönig gilt dort nicht. Entscheidend ist die Lage an/abseits der Autobahn; Live-Einzelpreise stehen nicht zur Verfügung.
  if(country==='hr'){
   const meters=Math.round(radiusKm*1000);
   const query='[out:json][timeout:25];(node["amenity"="fuel"](around:'+meters+','+point.lat+','+point.lon+');way["amenity"="fuel"](around:'+meters+','+point.lat+','+point.lon+');relation["amenity"="fuel"](around:'+meters+','+point.lat+','+point.lon+'););out center tags;';
-  const response=await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(query),{headers:{'Accept':'application/json'}});
-  if(!response.ok) throw new Error('Der kroatische Tankstellen-Kartendienst antwortet mit HTTP '+response.status+'.');
-  const data=await response.json();
+  const data=await fetchOverpass(query);
   const cap = croatiaOfficialPrice().value;
   return (data.elements||[]).map(el=>{const tags=el.tags||{},lat=Number(el.lat??(el.center||{}).lat),lon=Number(el.lon??(el.center||{}).lon);
    const tagText=[tags.name,tags.brand,tags.operator,tags['brand:wikidata'],tags.highway,tags.ref].filter(Boolean).join(' ').toLowerCase();
@@ -173,10 +190,7 @@ async function stationsNear(point, radiusKm, fuel, country='de'){
  }
  const meters=Math.round(radiusKm*1000);
  const query='[out:json][timeout:20];(node["amenity"="fuel"](around:'+meters+','+point.lat+','+point.lon+');way["amenity"="fuel"](around:'+meters+','+point.lat+','+point.lon+');relation["amenity"="fuel"](around:'+meters+','+point.lat+','+point.lon+'););out center tags;';
- const url='https://overpass-api.de/api/interpreter?data='+encodeURIComponent(query);
- const response=await fetch(url,{method:'GET',headers:{'Accept':'application/json'}});
- if(!response.ok) throw new Error('Der Tankstellen-Kartendienst ist momentan nicht erreichbar (HTTP '+response.status+').');
- const data=await response.json();
+ const data=await fetchOverpass(query);
  const list=(data.elements||[]).map(el=>{
   const tags=el.tags||{}, lat=Number(el.lat??(el.center||{}).lat), lon=Number(el.lon??(el.center||{}).lon);
   const name=tags.name||tags.brand||tags.operator||'Tankstelle ohne Namen';
@@ -318,7 +332,7 @@ async function renderStations(stations, point){
   const priced=inRadius.map(st=>{const extraRoundTripKm=nearest?Math.max(0,(st.roadKm-nearest.roadKm)*2):null;const extraFuel=extraRoundTripKm==null||capPrice==null?null:extraRoundTripKm*consumption/100;const extraCost=extraFuel==null?null:extraFuel*capPrice;return {...st,extraRoundTripKm,extraFuel,extraCost,total:capPrice==null?null:liters*capPrice+extraCost};});
   const top=priced.slice(0,3);
   if(!top.length){resultsEl.innerHTML='<p class="note">Keine Tankstelle mit auflösbarer Adresse und verfügbarer Straßenroute innerhalb des gewählten Suchradius gefunden. Erhöhe den Radius oder versuche es später erneut. Luftlinien werden nicht als Straßenentfernung ausgegeben.</p>';return;}
-  const cards=top.map((st,i)=>'<article class="result"><span class="pill">'+(i+1)+'. · '+st.roadKm.toLocaleString('de-DE',{maximumFractionDigits:1})+' km Straßenroute einfach</span><strong>'+esc(st.name)+'</strong><div class="small">'+esc(st.address)+'</div>'+croatiaPriceMarkup(!!st.isMotorway)+'<div class="small">Zusätzliche Gesamtstrecke gegenüber der nächsten Tankstelle: '+(st.extraRoundTripKm==null?'nicht berechenbar':st.extraRoundTripKm.toLocaleString('de-DE',{maximumFractionDigits:1})+' km')+'</div><div class="small">Zusätzlicher Kraftstoff: '+(st.extraFuel==null?'nicht berechenbar':st.extraFuel.toLocaleString('de-DE',{maximumFractionDigits:2})+' l')+'</div><div class="small">Mehrkosten der zusätzlichen Fahrt: '+(st.extraCost==null?'nicht berechenbar':money(st.extraCost))+'</div><div>Geschätzte Gesamtkosten für '+liters.toLocaleString('de-DE')+' l inkl. zusätzlicher Fahrt: <strong>'+(st.total==null?'nicht berechenbar':money(st.total))+'</strong></div><div class="actions"><button class="secondary" data-google="'+st.lat+','+st.lon+'">Google Maps</button><button class="secondary" data-apple="'+st.lat+','+st.lon+'">Apple Karten</button></div></article>').join('');
+  const cards=top.map((st,i)=>'<article class="result"><span class="pill">'+(i+1)+'. · '+st.roadKm.toLocaleString('de-DE',{maximumFractionDigits:1})+' km Straßenroute einfach</span><strong>'+esc(st.name)+'</strong><div class="small">'+esc(st.address)+'</div>'+croatiaPriceMarkup(!!st.isMotorway)+'<div class="small">Zusätzliche Gesamtstrecke gegenüber der nächstgelegenen Tankstelle: '+(st.extraRoundTripKm==null?'nicht berechenbar':st.extraRoundTripKm.toLocaleString('de-DE',{maximumFractionDigits:1})+' km')+'</div><div class="small">Zusätzlicher Kraftstoff: '+(st.extraFuel==null?'nicht berechenbar':st.extraFuel.toLocaleString('de-DE',{maximumFractionDigits:2})+' l')+'</div><div class="small">Mehrkosten der zusätzlichen Fahrt: '+(st.extraCost==null?'nicht berechenbar':money(st.extraCost))+'</div><div>Geschätzte Gesamtkosten für '+liters.toLocaleString('de-DE')+' l inkl. zusätzlicher Fahrt: <strong>'+(st.total==null?'nicht berechenbar':money(st.total))+'</strong></div><div class="actions"><button class="secondary" data-google="'+st.lat+','+st.lon+'">Google Maps</button><button class="secondary" data-apple="'+st.lat+','+st.lon+'">Apple Karten</button></div></article>').join('');
   resultsEl.innerHTML='<p class="note">Kroatien: Amtliche Höchstpreise werden nach Abruf mit Gültigkeitszeitraum als Vergleichswerte angezeigt, nicht als bestätigte Stationspreise. Angezeigt werden bis zu drei Tankstellen abseits der Autobahn, sortiert nach tatsächlicher Straßenentfernung. Der gewählte Radius wird ebenfalls anhand der Straßenroute geprüft. Die Autobahn-Erkennung beruht auf OpenStreetMap-Kennzeichnungen und kann unvollständig sein.</p>'+cards;
   resultsEl.querySelectorAll('[data-google]').forEach(b=>b.addEventListener('click',()=>{const c=b.dataset.google.split(',');window.open('https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(c[0]+','+c[1])+'&travelmode=driving','_blank','noopener');}));
   resultsEl.querySelectorAll('[data-apple]').forEach(b=>b.addEventListener('click',()=>{const c=b.dataset.apple.split(',');window.open('https://maps.apple.com/?daddr='+encodeURIComponent(c[0]+','+c[1])+'&dirflg=d','_blank','noopener');}));
